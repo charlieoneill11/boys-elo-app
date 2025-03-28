@@ -1,20 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import PlayerComparison from '@/components/PlayerComparison';
 import EloLeaderboard from '@/components/EloLeaderboard';
 import EloChart from '@/components/EloChart';
 import { PlayerWithId } from '@/types/player';
-import { getCurrentWeek, formatDateRange, getWeekRange } from '@/lib/date-utils';
+import { getCurrentWeek } from '@/lib/date-utils';
 
 export default function Home() {
   const [players, setPlayers] = useState<PlayerWithId[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentWeek, setCurrentWeek] = useState(getCurrentWeek());
+  const currentWeek = getCurrentWeek();
   
   // Fetch players from the API
-  const fetchPlayers = async () => {
+  const fetchPlayers = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch('/api/players');
@@ -32,25 +32,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  };
-  
-  // Initialize the database with seed data if necessary
-  const initializeApp = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/seed');
-      
-      if (!response.ok) {
-        throw new Error('Failed to seed database');
-      }
-      
-      await fetchPlayers();
-    } catch (err) {
-      console.error('Error initializing app:', err);
-      setError('Failed to initialize the application. Please try again.');
-      setLoading(false);
-    }
-  };
+  }, []);
   
   // Handle match result
   const handleMatchResult = async (winnerId: string, loserId: string) => {
@@ -87,21 +69,36 @@ export default function Home() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const response = await fetch('/api/players');
+        const playersResponse = await fetch('/api/players');
         
-        if (response.ok) {
-          const data = await response.json();
+        if (playersResponse.ok) {
+          const data = await playersResponse.json();
           
           if (data.length === 0) {
             // No players found, seed the database
-            await initializeApp();
+            setLoading(true);
+            const seedResponse = await fetch('/api/seed');
+            
+            if (seedResponse.ok) {
+              await fetchPlayers();
+            } else {
+              throw new Error('Failed to seed database');
+            }
           } else {
             // Players exist, just fetch them
-            await fetchPlayers();
+            setPlayers(data);
+            setLoading(false);
           }
         } else {
           // API error, try to initialize
-          await initializeApp();
+          setLoading(true);
+          const seedResponse = await fetch('/api/seed');
+          
+          if (seedResponse.ok) {
+            await fetchPlayers();
+          } else {
+            throw new Error('Failed to initialize app');
+          }
         }
       } catch (err) {
         console.error('Error loading initial data:', err);
@@ -111,7 +108,7 @@ export default function Home() {
     };
     
     loadData();
-  }, []);
+  }, [fetchPlayers]);
   
   // Calculate maximum weeks for chart
   const maxWeeks = 10; // Show up to 10 weeks on the chart

@@ -8,7 +8,7 @@ export async function GET() {
     await connectToDatabase();
     const players = await Player.find({}).sort({ currentElo: -1 });
     return NextResponse.json(players);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to fetch players' }, { status: 500 });
   }
 }
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     
     await player.save();
     return NextResponse.json(player, { status: 201 });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to create player' }, { status: 500 });
   }
-} 
+}

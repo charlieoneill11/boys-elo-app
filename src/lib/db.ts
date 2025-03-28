@@ -6,8 +6,18 @@ if (!MONGODB_URI) {
   throw new Error('Please define the MONGODB_URI environment variable');
 }
 
+// Define types for the cache
+interface CachedConnection {
+  conn: typeof mongoose | null;
+  promise: Promise<typeof mongoose> | null;
+}
+
+interface GlobalWithMongoose {
+  mongoose: CachedConnection;
+}
+
 // Cache the MongoDB connection to reuse it across requests
-let cached: any = global as any;
+const cached: GlobalWithMongoose = global as unknown as GlobalWithMongoose;
 if (!cached.mongoose) {
   cached.mongoose = { conn: null, promise: null };
 }
@@ -33,4 +43,4 @@ async function connectToDatabase() {
   return cached.mongoose.conn;
 }
 
-export default connectToDatabase; 
+export default connectToDatabase;

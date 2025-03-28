@@ -14,7 +14,7 @@ export async function GET() {
       .populate('winnerId', 'name')
       .populate('loserId', 'name');
     return NextResponse.json(matches);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to fetch matches' }, { status: 500 });
   }
 }
@@ -102,4 +102,4 @@ export async function POST(request: NextRequest) {
     console.error(error);
     return NextResponse.json({ error: 'Failed to record match' }, { status: 500 });
   }
-} 
+}
