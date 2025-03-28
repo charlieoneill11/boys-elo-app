@@ -6,12 +6,15 @@ import { PlayerWithId } from '@/types/player';
 
 interface PlayerComparisonProps {
   players: PlayerWithId[];
-  onMatchResult: (winnerId: string, loserId: string) => void;
+  onMatchResult: (winnerId: string, loserId: string, voterId: string) => void;
   dateRange: string;
 }
 
 export default function PlayerComparison({ players, onMatchResult, dateRange }: PlayerComparisonProps) {
   const [selectedPlayers, setSelectedPlayers] = useState<[PlayerWithId | null, PlayerWithId | null]>([null, null]);
+  const [password, setPassword] = useState<string>('');
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authenticatedPlayer, setAuthenticatedPlayer] = useState<PlayerWithId | null>(null);
   
   // Clear selections if players list changes
   useEffect(() => {
@@ -47,14 +50,67 @@ export default function PlayerComparison({ players, onMatchResult, dateRange }: 
     setSelectedPlayers([selectedPlayers[0], player]);
   };
   
+  // Handle authentication
+  const handleAuthenticate = async () => {
+    try {
+      setAuthError(null);
+      
+      const response = await fetch('/api/auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ password }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok || !data.success) {
+        setAuthError(data.error || 'Authentication failed');
+        setAuthenticatedPlayer(null);
+        return;
+      }
+      
+      // Find the authenticated player in our players list
+      const player = players.find(p => p._id.toString() === data.playerId);
+      
+      if (player) {
+        setAuthenticatedPlayer(player);
+        setAuthError(null);
+      } else {
+        setAuthError('Player not found');
+        setAuthenticatedPlayer(null);
+      }
+    } catch (error) {
+      console.error('Authentication error:', error);
+      setAuthError('Authentication failed');
+      setAuthenticatedPlayer(null);
+    }
+  };
+  
   // Declare winner (left or right player)
-  const declareWinner = (winnerSlot: 0 | 1) => {
+  const declareWinner = async (winnerSlot: 0 | 1) => {
     const loserSlot = winnerSlot === 0 ? 1 : 0;
     
+    if (!authenticatedPlayer) {
+      setAuthError('Please authenticate with your password first');
+      return;
+    }
+    
     if (selectedPlayers[winnerSlot] && selectedPlayers[loserSlot]) {
+      // Check if trying to vote for yourself
+      if (
+        authenticatedPlayer._id.toString() === selectedPlayers[winnerSlot]._id.toString() ||
+        authenticatedPlayer._id.toString() === selectedPlayers[loserSlot]._id.toString()
+      ) {
+        setAuthError('You cannot vote for yourself');
+        return;
+      }
+      
       onMatchResult(
         selectedPlayers[winnerSlot]!._id.toString(),
-        selectedPlayers[loserSlot]!._id.toString()
+        selectedPlayers[loserSlot]!._id.toString(),
+        authenticatedPlayer._id.toString()
       );
       
       // Clear selections after recording the result
@@ -62,8 +118,63 @@ export default function PlayerComparison({ players, onMatchResult, dateRange }: 
     }
   };
   
+  // Handle password input
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value);
+    setAuthError(null);
+  };
+  
+  // Handle submitting form on enter key
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleAuthenticate();
+    }
+  };
+  
   return (
     <div className="mb-12">
+      {/* Authentication UI */}
+      <div className="mb-8 p-4 border-2 border-black">
+        <h3 className="text-xl font-bold mb-2">Authentication</h3>
+        
+        {authenticatedPlayer ? (
+          <div className="flex items-center space-x-2">
+            <div className="p-2 bg-black text-white font-bold">
+              Logged in as {authenticatedPlayer.name}
+            </div>
+            <button 
+              onClick={() => setAuthenticatedPlayer(null)}
+              className="px-4 py-2 border-2 border-black hover:bg-gray-100"
+            >
+              Logout
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
+            <input
+              type="password"
+              value={password}
+              onChange={handlePasswordChange}
+              onKeyDown={handleKeyDown}
+              placeholder="Enter your password"
+              className="p-2 border-2 border-black"
+            />
+            <button 
+              onClick={handleAuthenticate}
+              className="px-4 py-2 border-2 border-black hover:bg-gray-100"
+            >
+              Login
+            </button>
+          </div>
+        )}
+        
+        {authError && (
+          <div className="mt-2 text-red-500 font-bold">
+            {authError}
+          </div>
+        )}
+      </div>
+      
       {/* Use the player-comparison class from globals.css */}
       <div className="player-comparison mb-8 relative">
         {/* Left Player Card */}
@@ -86,10 +197,11 @@ export default function PlayerComparison({ players, onMatchResult, dateRange }: 
               </div>
               <h3 className="text-4xl font-bold mt-4 mb-2">{selectedPlayers[0].name}</h3>
               <p className="text-2xl mb-4">Elo: {selectedPlayers[0].currentElo}</p>
-              {selectedPlayers[0] && selectedPlayers[1] && (
+              {selectedPlayers[0] && selectedPlayers[1] && authenticatedPlayer && (
                 <button
                   onClick={() => declareWinner(0)}
-                  className="py-2 px-8 border-2 border-black text-xl font-bold"
+                  className="py-2 px-8 border-2 border-black text-xl font-bold hover:bg-gray-100"
+                  disabled={!authenticatedPlayer}
                 >
                   Winner
                 </button>
@@ -121,10 +233,11 @@ export default function PlayerComparison({ players, onMatchResult, dateRange }: 
               </div>
               <h3 className="text-4xl font-bold mt-4 mb-2">{selectedPlayers[1].name}</h3>
               <p className="text-2xl mb-4">Elo: {selectedPlayers[1].currentElo}</p>
-              {selectedPlayers[0] && selectedPlayers[1] && (
+              {selectedPlayers[0] && selectedPlayers[1] && authenticatedPlayer && (
                 <button
                   onClick={() => declareWinner(1)}
-                  className="py-2 px-8 border-2 border-black text-xl font-bold"
+                  className="py-2 px-8 border-2 border-black text-xl font-bold hover:bg-gray-100"
+                  disabled={!authenticatedPlayer}
                 >
                   Winner
                 </button>
@@ -171,4 +284,4 @@ export default function PlayerComparison({ players, onMatchResult, dateRange }: 
       </div>
     </div>
   );
-} 
+}

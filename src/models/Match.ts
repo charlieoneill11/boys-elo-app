@@ -5,6 +5,7 @@ export interface IMatch extends Document {
   week: number;
   winnerId: mongoose.Types.ObjectId;
   loserId: mongoose.Types.ObjectId;
+  voterId: mongoose.Types.ObjectId; // Added field to track who voted
   winnerEloChange: number;
   loserEloChange: number;
   winnerEloAfter: number;
@@ -19,6 +20,7 @@ const MatchSchema: Schema = new Schema(
     week: { type: Number, required: true },
     winnerId: { type: Schema.Types.ObjectId, ref: 'Player', required: true },
     loserId: { type: Schema.Types.ObjectId, ref: 'Player', required: true },
+    voterId: { type: Schema.Types.ObjectId, ref: 'Player', required: true }, // Added field
     winnerEloChange: { type: Number, required: true },
     loserEloChange: { type: Number, required: true },
     winnerEloAfter: { type: Number, required: true },
@@ -27,5 +29,16 @@ const MatchSchema: Schema = new Schema(
   { timestamps: true }
 );
 
+// Add a compound index to enforce uniqueness of voter+week+year for pairs of players
+MatchSchema.index({ 
+  voterId: 1, 
+  year: 1, 
+  week: 1,
+  $or: [
+    { winnerId: 1, loserId: 1 },
+    { winnerId: 1, loserId: -1 }
+  ]
+}, { unique: true });
+
 // Prevent reinitializing the model if it already exists
-export default mongoose.models.Match || mongoose.model<IMatch>('Match', MatchSchema); 
+export default mongoose.models.Match || mongoose.model<IMatch>('Match', MatchSchema);

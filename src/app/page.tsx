@@ -35,7 +35,7 @@ export default function Home() {
   }, []);
   
   // Handle match result
-  const handleMatchResult = async (winnerId: string, loserId: string) => {
+  const handleMatchResult = async (winnerId: string, loserId: string, voterId: string) => {
     try {
       setLoading(true);
       
@@ -47,20 +47,26 @@ export default function Home() {
         body: JSON.stringify({
           winnerId,
           loserId,
+          voterId, // Added voter ID
           year: currentWeek.year,
           week: currentWeek.weekNumber
         }),
       });
       
       if (!response.ok) {
-        throw new Error('Failed to record match result');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to record match result');
       }
       
       // Refresh players data to get updated Elo ratings
       await fetchPlayers();
     } catch (err) {
-      console.error('Error recording match result:', err);
-      setError('Failed to record match result. Please try again.');
+      if (err instanceof Error) {
+        console.error('Error recording match result:', err);
+        setError(err.message || 'Failed to record match result. Please try again.');
+      } else {
+        setError('Failed to record match result. Please try again.');
+      }
       setLoading(false);
     }
   };
