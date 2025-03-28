@@ -1,10 +1,12 @@
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/elo_app';
+// Hardcoded connection string as a fallback
+const MONGODB_ATLAS_URI = 'mongodb+srv://maxkirkby1:oPHUKkMWicbWgzmv@boyscluster.oznehns.mongodb.net/?retryWrites=true&w=majority&appName=boyscluster';
 
-if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable');
-}
+// Try to use the environment variable first, but fall back to the hardcoded string
+const MONGODB_URI = process.env.MONGODB_URI || MONGODB_ATLAS_URI;
+
+console.log('Using MongoDB URI:', MONGODB_URI.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@')); // Log sanitized URI for debugging
 
 // Define types for the cache
 interface CachedConnection {
@@ -28,7 +30,9 @@ async function connectToDatabase() {
   }
 
   if (!cached.mongoose.promise) {
+    console.log('Attempting to connect to MongoDB...');
     cached.mongoose.promise = mongoose.connect(MONGODB_URI).then((mongoose) => {
+      console.log('Successfully connected to MongoDB');
       return mongoose;
     });
   }
@@ -36,6 +40,7 @@ async function connectToDatabase() {
   try {
     cached.mongoose.conn = await cached.mongoose.promise;
   } catch (e) {
+    console.error('Error connecting to MongoDB:', e);
     cached.mongoose.promise = null;
     throw e;
   }
