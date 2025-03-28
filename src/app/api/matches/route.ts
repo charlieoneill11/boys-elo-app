@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Check if this voter has already voted for this pair in this week
+    // Need to check both directions (winner-loser and loser-winner)
     const existingVote = await Match.findOne({
       voterId: voter._id,
       year,

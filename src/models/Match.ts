@@ -29,15 +29,14 @@ const MatchSchema: Schema = new Schema(
   { timestamps: true }
 );
 
-// Add a compound index to enforce uniqueness of voter+week+year for pairs of players
+// Create a compound index to prevent duplicate votes in the same week
+// This index checks if a voter has already voted on the exact same pair
 MatchSchema.index({ 
   voterId: 1, 
   year: 1, 
   week: 1,
-  $or: [
-    { winnerId: 1, loserId: 1 },
-    { winnerId: 1, loserId: -1 }
-  ]
+  winnerId: 1, 
+  loserId: 1
 }, { unique: true });
 
 // Prevent reinitializing the model if it already exists
